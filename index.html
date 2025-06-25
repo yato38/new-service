@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東進AIチューター プレビュー</title>
+    <!-- Tailwind CSSを読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter, Noto Sans JP) を読み込み -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Chart.jsライブラリ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* カスタムスタイル */
+        body {
+            font-family: 'Noto Sans JP', 'Inter', sans-serif;
+            overflow: hidden; /* ページ全体のスクロールを禁止 */
+        }
+        /* AIアバターの脈動アニメーション */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+            50% {
+                transform: scale(1.03);
+                opacity: 1;
+            }
+        }
+        .ai-avatar-pulse {
+            animation: pulse 4s ease-in-out infinite;
+        }
+        /* スクロールバーのスタイル */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d1d5db; /* gray-300 */
+            border-radius: 20px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+        }
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #d1d5db transparent;
+        }
+        /* 画面切り替え時のための非表示クラス */
+        .hidden-view {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="flex h-screen w-screen">
+        <!-- サイドバー -->
+        <aside class="w-56 flex-shrink-0 bg-white text-gray-700 flex flex-col border-r border-gray-200">
+            <div class="h-16 flex items-center justify-center bg-green-900 text-white shadow-md">
+                <h1 class="text-xl font-bold tracking-wider">東進AIチューター</h1>
+            </div>
+            <nav id="sidebar-nav" class="flex-grow p-4">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" data-view="dialogue" class="nav-link flex items-center py-2.5 px-4 rounded-lg bg-green-600 text-white">
+                            <i class="fa-solid fa-comments w-6 text-center mr-3"></i>
+                            <span>対話</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-view="schedule" class="nav-link flex items-center py-2.5 px-4 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fa-solid fa-calendar-week w-6 text-center mr-3 text-gray-500"></i>
+                            <span>週次スケジュール</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-view="tasks" class="nav-link flex items-center py-2.5 px-4 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fa-solid fa-list-check w-6 text-center mr-3 text-gray-500"></i>
+                            <span>今日のタスク</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-view="grades" class="nav-link flex items-center py-2.5 px-4 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fa-solid fa-chart-line w-6 text-center mr-3 text-gray-500"></i>
+                            <span>成績推移表</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- メインコンテンツ -->
+        <main class="flex-1 flex overflow-hidden bg-gray-200">
+            <!-- 対話ビュー -->
+            <div id="view-dialogue" class="flex-1 flex-col md:flex-row overflow-hidden hidden-view">
+                <div class="w-full md:w-1/2 h-full bg-gray-800 flex flex-col items-center justify-center p-8 text-gray-200 relative">
+                    <div class="relative z-10 text-center">
+                        <div class="mb-4">
+                            <div class="inline-block bg-gray-700 rounded-full px-4 py-2 text-base mb-2">
+                                <span class="font-bold text-white">利用開始 </span>
+                                <span class="font-bold text-green-400 text-xl mx-1">128</span>
+                                <span class="font-bold text-white"> 日目</span>
+                            </div>
+                            <div class="text-sm text-gray-300">
+                                <span>共通テストまであと </span>
+                                <span id="countdown" class="font-bold text-lg text-yellow-400"></span>
+                                <span> 日</span>
+                            </div>
+                        </div>
+                        <h1 class="text-3xl lg:text-4xl font-bold text-white mb-4 mt-4">AIチューター</h1>
+                        <p class="text-gray-400 mb-6">こんにちは！一緒に学びましょう。</p>
+                        <div class="w-40 h-40 lg:w-48 lg:h-48 mx-auto bg-green-500 rounded-full flex items-center justify-center shadow-lg ai-avatar-pulse mb-6"><i class="fa-solid fa-robot text-6xl lg:text-7xl text-white"></i></div>
+                        <div class="w-full max-w-xs mx-auto flex flex-col items-stretch gap-3">
+                            <button id="goto-input-view-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-file-arrow-up"></i><span>成果入力</span></button>
+                            <button class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-calendar-check"></i><span>週次予定反映</span></button>
+                            <button class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-clipboard-list"></i><span>今日のタスク反映</span></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full md:w-1/2 h-full bg-gray-100 flex flex-col p-6 lg:p-10 overflow-y-auto custom-scrollbar border-l border-gray-200">
+                    <div class="flex-grow flex flex-col bg-white p-6 rounded-2xl shadow-sm"><h2 class="text-2xl font-bold mb-4">対話ウィンドウ</h2><div class="relative flex-grow flex flex-col bg-gray-100 rounded-lg p-4 shadow-inner"><textarea id="student-speech" class="flex-grow w-full bg-transparent resize-none focus:outline-none" placeholder="..."></textarea></div><div class="flex items-center justify-between mt-4"><button class="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full"><i class="fa-solid fa-microphone"></i></button><button id="update-roadmap-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-lg">ロードマップを更新</button></div></div>
+                    <div class="my-6"></div>
+                    <div class="flex-shrink-0 bg-white p-6 rounded-2xl shadow-sm"><h2 class="text-2xl font-bold mb-4">実現へのロードマップ</h2>
+                        <button id="goto-roadmap-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                           <i class="fa-solid fa-map-location-dot"></i>
+                           <span>ロードマップを全画面で表示</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成果入力ビュー -->
+            <div id="view-input" class="flex-1 flex-col p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-gray-100 hidden-view">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">成果入力</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm"><h3 class="text-xl font-bold mb-4">成績表PDFの反映</h3><div class="flex items-center justify-center w-full"><label for="dropzone-file-pdf" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"><div class="flex flex-col items-center justify-center pt-5 pb-6"><i class="fa-solid fa-file-pdf text-4xl text-gray-400 mb-3"></i><p class="mb-2 text-sm text-gray-500"><span class="font-semibold">クリックしてアップロード</span></p><p class="text-xs text-gray-500">またはドラッグ＆ドロップ</p><p class="text-xs text-gray-500 mt-1">PDF (MAX. 5MB)</p></div><input id="dropzone-file-pdf" type="file" class="hidden" accept=".pdf" /></label></div><button class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors">PDFを反映</button></div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm"><h3 class="text-xl font-bold mb-4">解いた問題のOCR読取</h3><div class="flex items-center justify-center w-full"><label for="dropzone-file-ocr" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"><div class="flex flex-col items-center justify-center pt-5 pb-6"><i class="fa-solid fa-camera-retro text-4xl text-gray-400 mb-3"></i><p class="mb-2 text-sm text-gray-500"><span class="font-semibold">クリックしてアップロード</span></p><p class="text-xs text-gray-500">またはドラッグ＆ドロップ</p><p class="text-xs text-gray-500 mt-1">PNG, JPG (MAX. 5MB)</p></div><input id="dropzone-file-ocr" type="file" class="hidden" accept="image/*" /></label></div><button class="mt-4 w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg transition-colors">OCRで読み取る</button></div>
+                </div>
+                <div class="mt-8"><h3 class="text-2xl font-bold mb-4 text-gray-800">おすすめ教材</h3><div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"><div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg transition-shadow"><div class="flex items-center mb-3"><div class="p-3 rounded-full bg-emerald-100 mr-4"><i class="fa-solid fa-bolt text-emerald-600"></i></div><div><h4 class="font-bold text-lg">高速マスター基礎力養成講座</h4><p class="text-sm text-gray-500">英単語センター1800</p></div></div><p class="text-gray-600 text-sm mb-4">成績データから、語彙力の基礎固めが効果的と判断されました。この講座で頻出単語を効率的にマスターしましょう。</p><button class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-lg transition-colors">講座詳細へ</button></div><div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg transition-shadow"><div class="flex items-center mb-3"><div class="p-3 rounded-full bg-teal-100 mr-4"><i class="fa-solid fa-book-open-reader text-teal-600"></i></div><div><h4 class="font-bold text-lg">過去問演習講座</h4><p class="text-sm text-gray-500">東京大学（英語）</p></div></div><p class="text-gray-600 text-sm mb-4">OCRで読み取った問題の正答率から、長文読解の演習が必要です。過去問を通じて実戦力を養いましょう。</p><button class="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 rounded-lg transition-colors">講座詳細へ</button></div><div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg transition-shadow"><div class="flex items-center mb-3"><div class="p-3 rounded-full bg-lime-100 mr-4"><i class="fa-solid fa-calculator text-lime-600"></i></div><div><h4 class="font-bold text-lg">今日の授業</h4><p class="text-sm text-gray-500">数学ぐんぐん 微分法</p></div></div><p class="text-gray-600 text-sm mb-4">アップロードされた問題の苦手分野を分析しました。この授業で微分法の理解を深め、得点力アップを目指します。</p><button class="w-full bg-lime-500 hover:bg-lime-600 text-white font-bold py-2 rounded-lg transition-colors">授業を受ける</button></div></div></div>
+            </div>
+
+            <!-- 週次スケジュールビュー -->
+            <div id="view-schedule" class="flex-1 flex-col p-8 overflow-y-auto custom-scrollbar bg-gray-100 hidden-view">
+                 <h2 class="text-3xl font-bold mb-6 text-gray-800">週次スケジュール</h2>
+                 <div id="schedule-container" class="bg-white p-6 rounded-2xl shadow-sm"></div>
+                 <div class="mt-8"><h3 class="text-2xl font-bold mb-4 text-gray-800">週次勉強ログ</h3><div id="log-container" class="bg-white p-6 rounded-2xl shadow-sm space-y-4"></div></div>
+            </div>
+            
+            <!-- 今日のタスクビュー -->
+            <div id="view-tasks" class="flex-1 flex-col p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-gray-100 hidden-view">
+                 <h2 id="task-title" class="text-3xl font-bold mb-6 text-gray-800"></h2>
+                 <div class="flex flex-col xl:flex-row gap-8"><div class="xl:flex-grow bg-white p-6 rounded-2xl shadow-sm"><div id="timetable" class="relative"></div></div><div class="xl:w-80 flex-shrink-0 flex flex-col gap-8"><div class="bg-white p-6 rounded-2xl shadow-sm"><h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-book-open text-green-500"></i><span>今日の学習ログ</span></h3><div class="text-center mb-4"><span class="text-4xl font-bold text-gray-800">5</span><span class="text-lg ml-1 mr-2">時間</span><span class="text-4xl font-bold text-gray-800">30</span><span class="text-lg ml-1">分</span></div><div class="space-y-3"><div><div class="flex justify-between mb-1"><span class="font-medium text-emerald-700">数学</span><span class="font-medium">2時間</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-emerald-500 h-2 rounded-full" style="width: 36.4%"></div></div></div><div><div class="flex justify-between mb-1"><span class="font-medium text-teal-700">英語</span><span class="font-medium">1.5時間</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-teal-500 h-2 rounded-full" style="width: 27.3%"></div></div></div><div><div class="flex justify-between mb-1"><span class="font-medium text-lime-700">社会</span><span class="font-medium">2時間</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-lime-500 h-2 rounded-full" style="width: 36.4%"></div></div></div></div></div><div class="bg-white p-6 rounded-2xl shadow-sm"><h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-heart-pulse text-green-400"></i><span>生活サイクル</span></h3><div class="space-y-4"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><i class="fa-solid fa-sun w-5 text-center text-yellow-400"></i><span>起床時間</span></div><span class="font-bold text-lg">07:00</span></div><div class="flex items-center justify-between"><div class="flex items-center gap-3"><i class="fa-solid fa-moon w-5 text-center text-blue-300"></i><span>就寝時間</span></div><span class="font-bold text-lg">23:30</span></div><div class="flex items-center justify-between"><div class="flex items-center gap-3"><i class="fa-solid fa-bed w-5 text-center text-purple-400"></i><span>総睡眠時間</span></div><span class="font-bold text-lg">7.5 h</span></div></div></div></div></div>
+            </div>
+            
+            <!-- 科目別詳細ビュー -->
+            <div id="view-subject-detail" class="flex-1 flex-col p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-gray-100 hidden-view">
+                <button id="back-to-schedule" class="self-start mb-4 bg-white px-4 py-2 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i>週次スケジュールに戻る</button>
+                <h2 id="subject-detail-title" class="text-3xl font-bold mb-6 text-gray-800"></h2>
+                <div class="bg-white p-6 rounded-2xl shadow-sm">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="p-2">教材</th>
+                                <th class="p-2">範囲</th>
+                                <th class="p-2">実施日</th>
+                                <th class="p-2">学習時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subject-detail-list">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+             <!-- ロードマップ詳細ビュー -->
+            <div id="view-roadmap" class="flex-1 flex-col p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-gray-100 hidden-view">
+                <button id="back-to-dialogue" class="self-start mb-4 bg-white px-4 py-2 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i>対話画面に戻る</button>
+                <div id="roadmap-full-content" class="bg-white p-8 rounded-2xl shadow-sm"></div>
+            </div>
+
+            <!-- 成績推移表ビュー -->
+            <div id="view-grades" class="flex-1 flex-col p-6 lg:p-8 overflow-y-auto custom-scrollbar bg-gray-100 hidden-view">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">成績推移表</h2>
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    <div class="xl:col-span-2 bg-white p-6 rounded-2xl shadow-sm flex flex-col"><h3 class="text-xl font-bold mb-4 flex-shrink-0">勉強時間と成績の推移</h3><div class="relative flex-grow"><canvas id="gradesChart"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm"><h3 class="text-xl font-bold mb-4">目標との差</h3><div class="space-y-6"><div><div class="flex justify-between items-end mb-1"><h4 class="font-bold text-lg text-green-600">現在の実力（6月）</h4><p class="text-2xl font-bold text-green-600">偏差値 55</p></div><div class="w-full bg-gray-200 rounded-full h-6"><div class="bg-green-500 h-6 rounded-full" style="width: 60%;"></div></div></div><div><div class="flex justify-between items-end mb-1"><h4 class="font-bold text-lg text-teal-600">目標（8月東大模試）</h4><p class="text-2xl font-bold text-teal-600">偏差値 60</p></div><div class="w-full bg-gray-200 rounded-full h-6"><div class="bg-teal-500 h-6 rounded-full" style="width: 70%;"></div></div></div><div class="text-center bg-gray-100 p-4 rounded-lg"><p class="text-gray-500">目標達成まで残り...</p><p class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-lime-500">あと 5 ポイント</p></div></div></div>
+                </div>
+            </div>
+
+            <!-- モーダル -->
+            <div id="task-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+                    <h3 id="modal-title" class="text-lg font-bold mb-4">タスク詳細</h3>
+                    <p id="modal-body"></p>
+                    <button id="modal-close" class="mt-4 w-full bg-gray-200 hover:bg-gray-300 py-2 rounded-lg">閉じる</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // FIX: Hoist variable and constant declarations to avoid TDZ errors.
+            let gradesChartInstance = null;
+            const weeklyLogData = {
+                math: { name: "数学", totalTime: 12.5, percent: 35, color: "emerald", tasks: [
+                    { name: "計算演習", pages: "p.10-15", day: "月", time: "2.0h" },
+                    { name: "数学ぐんぐん(応用)", pages: "第3講", day: "水", time: "1.5h" },
+                    { name: "大問分野別演習", pages: "確率 3題", day: "木", time: "1.5h" },
+                    { name: "週次テスト", pages: "第5回", day: "土", time: "1.0h" },
+                    { name: "テスト復習", pages: "第5回", day: "日", time: "2.5h" },
+                ]},
+                english: { name: "英語", totalTime: 10, percent: 28, color: "teal", tasks: [
+                     { name: "高速マスター", pages: "Stage 8", day: "月", time: "1.0h" },
+                     { name: "長文読解", pages: "テーマ別長文 2題", day: "火", time: "2.0h" },
+                     { name: "文法750", pages: "Part 5", day: "木", time: "1.5h" },
+                ]},
+                social: { name: "社会", totalTime: 8, percent: 23, color: "lime", tasks: [
+                    { name: "近代史復習", pages: "p.80-95", day: "火", time: "2.0h" },
+                    { name: "現代社会演習", pages: "問題集 5問", day: "金", time: "1.5h" }
+                ]},
+                science: { name: "理科", totalTime: 5, percent: 14, color: "green", tasks: [
+                    { name: "化学基礎", pages: "p.50-55", day: "水", time: "1.0h" },
+                    { name: "物理基礎", pages: "p.30-35", day: "金", time: "1.0h" },
+                ]}
+            };
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            const views = {
+                dialogue: document.getElementById('view-dialogue'),
+                schedule: document.getElementById('view-schedule'),
+                tasks: document.getElementById('view-tasks'),
+                grades: document.getElementById('view-grades'),
+                input: document.getElementById('view-input'),
+                subjectDetail: document.getElementById('view-subject-detail'),
+                roadmap: document.getElementById('view-roadmap'),
+            };
+
+            // --- Countdown Timer ---
+            const countdownEl = document.getElementById('countdown');
+            if (countdownEl) {
+                const testDate = new Date('2026-01-17T00:00:00');
+                const now = new Date();
+                const diffTime = testDate - now;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                countdownEl.textContent = diffDays;
+            }
+
+            // --- Modal ---
+            const modal = document.getElementById('task-modal');
+            const modalCloseBtn = document.getElementById('modal-close');
+            if(modal && modalCloseBtn) {
+                 modalCloseBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            }
+            function showModal(title, body) {
+                if(modal) {
+                    document.getElementById('modal-title').textContent = title;
+                    document.getElementById('modal-body').textContent = body;
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
+            }
+
+            // --- Switch Views ---
+            const gotoInputBtn = document.getElementById('goto-input-view-btn');
+            if(gotoInputBtn) {
+                gotoInputBtn.addEventListener('click', (e) => { e.preventDefault(); switchView('input'); });
+            }
+            
+            const backToScheduleBtn = document.getElementById('back-to-schedule');
+             if(backToScheduleBtn) {
+                backToScheduleBtn.addEventListener('click', (e) => { e.preventDefault(); switchView('schedule'); });
+            }
+            
+            const gotoRoadmapBtn = document.getElementById('goto-roadmap-btn');
+            if(gotoRoadmapBtn) {
+                gotoRoadmapBtn.addEventListener('click', (e) => { e.preventDefault(); switchView('roadmap'); });
+            }
+
+            const backToDialogueBtn = document.getElementById('back-to-dialogue');
+            if(backToDialogueBtn) {
+                backToDialogueBtn.addEventListener('click', (e) => { e.preventDefault(); switchView('dialogue'); });
+            }
+
+
+            function switchView(targetView, subjectData = null) {
+                Object.values(views).forEach(view => { if (view) view.classList.add('hidden-view'); });
+                if (views[targetView]) {
+                    views[targetView].classList.remove('hidden-view');
+                    views[targetView].style.display = 'flex';
+                }
+                
+                navLinks.forEach(l => {
+                    const icon = l.querySelector('i');
+                    l.classList.remove('bg-green-600', 'text-white');
+                    l.classList.add('hover:bg-gray-100', 'text-gray-700');
+                    if (icon) icon.classList.add('text-gray-500');
+                    
+                    if (l.getAttribute('data-view') === targetView) {
+                        l.classList.add('bg-green-600', 'text-white');
+                        l.classList.remove('hover:bg-gray-100', 'text-gray-700');
+                        if (icon) icon.classList.remove('text-gray-500');
+                    }
+                });
+
+                if (['input', 'subjectDetail', 'roadmap'].includes(targetView)) {
+                     navLinks.forEach(l => {
+                        const icon = l.querySelector('i');
+                        if(l.dataset.view !== 'dialogue') {
+                            l.classList.remove('bg-green-600', 'text-white');
+                            l.classList.add('hover:bg-gray-100', 'text-gray-700');
+                            if (icon) icon.classList.add('text-gray-500');
+                        }
+                    });
+                     if (targetView === 'roadmap' || targetView === 'input' || targetView === 'subjectDetail') {
+                        const dialogueLink = document.querySelector('a[data-view="dialogue"]');
+                        dialogueLink.classList.add('bg-green-600', 'text-white');
+                        dialogueLink.querySelector('i').classList.remove('text-gray-500');
+                     }
+                }
+                
+                if (targetView === 'subjectDetail' && subjectData) renderSubjectDetail(subjectData);
+                if (targetView === 'grades') renderGradesChart();
+                if (targetView === 'schedule') renderSchedule();
+                if (targetView === 'tasks') renderTasks();
+                if (targetView === 'roadmap') updateRoadmap(true);
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => { e.preventDefault(); switchView(link.getAttribute('data-view')); });
+            });
+            
+            // --- Dialogue and Roadmap ---
+            const updateRoadmap = (isFullView = false) => {
+                const roadmapContent = `<h3 class="text-2xl font-bold mb-6 text-gray-800">8月東大模試 偏差値60達成プラン</h3><ul class="list-none space-y-4"><li><h4 class="text-xl font-semibold text-teal-700"><i class="fa-solid fa-book mr-2"></i>英語</h4><ul class="list-disc space-y-2 pl-10 mt-2 text-gray-700"><li>高速マスター基礎力養成講座「英単語センター1800」を毎日実施 (〜8月末)</li><li>「英文法レベル別問題集 4」を7月中旬までに完了</li><li>「英語長文レベル別問題集 4」を週3回のペースで進める</li></ul></li><li class="mt-4"><h4 class="text-xl font-semibold text-emerald-700"><i class="fa-solid fa-calculator mr-2"></i>数学</h4><ul class="list-disc space-y-2 pl-10 mt-2 text-gray-700"><li>「数学ぐんぐん（応用編）」を7月下旬までに受講完了</li><li>「共通テスト対策 大問分野別演習」を毎日1題、時間を計って解く</li><li>週末に過去問を1年分実施し、翌日に徹底的に復習する</li></ul></li></ul>`;
+                const roadmapFullContentDiv = document.getElementById('roadmap-full-content');
+                
+                if (roadmapFullContentDiv) {
+                    roadmapFullContentDiv.innerHTML = roadmapContent;
+                }
+            };
+            
+            const studentSpeechTextarea = document.getElementById('student-speech');
+            if(studentSpeechTextarea) {
+                studentSpeechTextarea.value = "8月の東大模試で、なんとか偏差値60を取りたいです。今の実力だと全然足りていないので、あと2ヶ月で何をすればいいか具体的な計画を教えてください。特に英語と数学を重点的にやりたいです。";
+            }
+            
+            // --- Schedule & Logs ---
+            function renderSchedule() {
+                const scheduleContainer = document.getElementById('schedule-container');
+                const logContainer = document.getElementById('log-container');
+                if (!scheduleContainer || !logContainer) return;
+
+                document.querySelector('#view-schedule h2').textContent = '週次スケジュール';
+
+                const scheduleData = { 
+                    "日": [{ task: "予備日", color: "gray", duration: "N/A" }, { task: "数学: テスト復習", color: "emerald", duration: "2.5時間" }], 
+                    "月": [{ task: "英語: 高速マスター", color: "teal", duration: "1.0時間" }, { task: "数学: 計算演習", color: "emerald", duration: "2.0時間" }], 
+                    "火": [{ task: "社会: 近代史復習", color: "lime", duration: "2.0時間" }, { task: "英語: 長文読解", color: "teal", duration: "2.0時間" }], 
+                    "水": [{ task: "数学: 数学ぐんぐん", color: "emerald", duration: "1.5時間" }, { task: "理科: 化学基礎", color: "green", duration: "1.0時間" }], 
+                    "木": [{ task: "英語: 文法750", color: "teal", duration: "1.5時間" }, { task: "数学: 大問分野別演習", color: "emerald", duration: "1.5時間" }], 
+                    "金": [{ task: "社会: 現代社会演習", color: "lime", duration: "1.5時間" }, { task: "理科: 物理基礎", color: "green", duration: "1.0時間" }], 
+                    "土": [{ task: "週次テスト", color: "purple", duration: "2.0時間" }] 
+                };
+                
+                let scheduleHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
+                const days = ["日", "月", "火", "水", "木", "金", "土"];
+                const dates = ["22", "23", "24", "25", "26", "27", "28"];
+                
+                days.forEach((day, index) => {
+                    scheduleHtml += `<div><div class="text-sm text-gray-500">6/${dates[index]}</div><div class="font-bold">${day}</div></div>`;
+                });
+
+                scheduleHtml += '<div class="col-span-7 border-b my-2 border-gray-200"></div>';
+                days.forEach(day => { 
+                    scheduleHtml += '<div class="space-y-2">'; 
+                    scheduleData[day].forEach(item => { 
+                        scheduleHtml += `<div class="bg-${item.color}-50 text-${item.color}-800 p-2 rounded-lg text-sm cursor-pointer hover:bg-${item.color}-100 transition-colors schedule-task" data-task="${item.task}" data-duration="${item.duration}">${item.task}</div>`; 
+                    }); 
+                    scheduleHtml += '</div>'; 
+                });
+                scheduleHtml += '</div>';
+                scheduleContainer.innerHTML = scheduleHtml;
+                
+                scheduleContainer.querySelectorAll('.schedule-task').forEach(taskEl => {
+                    taskEl.addEventListener('click', () => {
+                        const taskName = taskEl.dataset.task;
+                        const duration = taskEl.dataset.duration;
+                        showModal(taskName, `想定学習時間: ${duration}`);
+                    });
+                });
+
+                let logHtml = '';
+                Object.values(weeklyLogData).forEach(log => {
+                    logHtml += `<a href="#" class="block subject-log-link hover:bg-gray-50 p-2 rounded-lg" data-subject-key="${Object.keys(weeklyLogData).find(key => weeklyLogData[key] === log)}"><div class="flex justify-between mb-1"><span class="text-base font-medium text-${log.color}-700">${log.name}</span><span class="text-sm font-medium text-${log.color}-700">${log.totalTime}時間 / ${log.percent}%</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-${log.color}-500 h-2.5 rounded-full" style="width: ${log.percent}%"></div></div></a>`;
+                });
+                logContainer.innerHTML = logHtml;
+
+                document.querySelectorAll('.subject-log-link').forEach(link => {
+                    link.addEventListener('click', e => {
+                        e.preventDefault();
+                        const subjectKey = link.dataset.subjectKey;
+                        switchView('subjectDetail', weeklyLogData[subjectKey]);
+                    });
+                });
+            }
+
+            function renderSubjectDetail(subjectData) {
+                const titleEl = document.getElementById('subject-detail-title');
+                const listEl = document.getElementById('subject-detail-list');
+                if(!titleEl || !listEl) return;
+
+                titleEl.innerHTML = `<i class="fa-solid fa-book text-${subjectData.color}-500 mr-3"></i>今週の「${subjectData.name}」の学習一覧`;
+                
+                let listHtml = '';
+                subjectData.tasks.forEach(task => {
+                    listHtml += `<tr class="border-b border-gray-200 last:border-b-0">
+                        <td class="p-3 font-medium">${task.name}</td>
+                        <td class="p-3 text-gray-600">${task.pages}</td>
+                        <td class="p-3 text-gray-600">${task.day}曜日</td>
+                        <td class="p-3 text-gray-600">${task.time}</td>
+                    </tr>`;
+                });
+                listEl.innerHTML = listHtml;
+            }
+
+            // --- Tasks ---
+            function renderTasks() {
+                const timetableEl = document.getElementById('timetable');
+                if (!timetableEl) return;
+                
+                const today = new Date();
+                const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][today.getDay()];
+                document.getElementById('task-title').textContent = `今日のタスク (${today.getMonth()+1}/${today.getDate()} ${dayOfWeek})`;
+                
+                let html = '';
+                for (let i = 8; i <= 23; i++) { html += `<div class="flex items-start" style="height: 50px;"><div class="w-16 text-right pr-4 text-sm text-gray-400 -translate-y-2">${i}:00</div><div class="flex-1 border-t border-dashed border-gray-200"></div></div>`; }
+                timetableEl.innerHTML = html;
+                
+                const tasks = [ { name: '数学: 数学ぐんぐん', start: 9, end: 11, color: 'emerald' }, { name: '英語: 長文読解', start: 14, end: 15.5, color: 'teal' }, { name: '社会: 近代史復習', start: 16, end: 17, color: 'lime' }, { name: '休憩', start: 17, end: 18, color: 'gray' }, { name: '理科: 化学基礎', start: 19, end: 20, color: 'green' }];
+
+                tasks.forEach(task => {
+                    const top = (task.start - 8) * 50; const height = (task.end - task.start) * 50;
+                    const taskEl = document.createElement('div');
+                    taskEl.className = `absolute left-16 right-0 p-2 rounded-lg bg-${task.color}-50 border-l-4 border-${task.color}-500`;
+                    taskEl.style.top = `${top}px`; taskEl.style.height = `${height}px`;
+                    taskEl.innerHTML = `<p class="font-bold text-sm text-${task.color}-800">${task.name}</p>`;
+                });
+            }
+
+            // --- Grades Chart ---
+            function renderGradesChart() {
+                const ctx = document.getElementById('gradesChart');
+                if (!ctx) return;
+                if (gradesChartInstance) {
+                    gradesChartInstance.destroy();
+                }
+                const gridColor = 'rgba(0, 0, 0, 0.05)';
+                const textColor = '#374151';
+
+                gradesChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+                        datasets: [{ label: '勉強時間 (時間)', data: [120, 135, 150, 145, 160, 180], backgroundColor: 'rgba(16, 185, 129, 0.5)', borderColor: 'rgba(16, 185, 129, 1)', borderWidth: 1, yAxisID: 'y' }, { label: '偏差値', data: [50, 52, 51, 53, 54, 55], type: 'line', borderColor: 'rgb(20, 184, 166)', backgroundColor: 'rgba(20, 184, 166, 0.5)', tension: 0.1, yAxisID: 'y1' }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false, },
+                        scales: {
+                            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '勉強時間 (時間)', color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } },
+                            y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: '偏差値', color: textColor }, ticks: { color: textColor }, grid: { drawOnChartArea: false }, min: 40, max: 80 }
+                        },
+                        plugins: { legend: { labels: { color: textColor } } }
+                    }
+                });
+            }
+            
+            // 初期表示
+            updateRoadmap();
+            switchView('dialogue');
+        });
+    </script>
+</body>
+</html>
